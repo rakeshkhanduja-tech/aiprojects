@@ -20,13 +20,19 @@ mcp_tools = MCPTools(db)
 # Automated DB Setup on startup
 @app.on_event("startup")
 async def startup_event():
+    print("[DEBUG] MCP Server starting up...")
     schema_path = os.path.join(os.path.dirname(__file__), "..", "database", "schema.sql")
     seed_path = os.path.join(os.path.dirname(__file__), "..", "database", "seed.py")
-    db.setup_database(schema_path)
-    # Check if seeded
-    res = db.query("SELECT COUNT(*) FROM users")
-    if res[0]['count'] == 0:
-        db.seed_data(seed_path)
+    try:
+        db.setup_database(schema_path)
+        # Check if seeded
+        res = db.query("SELECT COUNT(*) FROM users")
+        if res[0]['count'] == 0:
+            print("[DEBUG] Database empty. Running seed scripts...")
+            db.seed_data(seed_path)
+        print("[DEBUG] Database initialization complete.")
+    except Exception as e:
+        print(f"[CRITICAL] Startup Database Error: {e}")
 
 class DecisionLog(BaseModel):
     agent_name: str
@@ -37,6 +43,7 @@ class DecisionLog(BaseModel):
 
 @app.get("/capabilities")
 async def get_capabilities():
+    print("[DEBUG] Client requested capabilities list.")
     return {
         "capabilities": [
             "get_sales_pipeline_summary",
@@ -52,6 +59,7 @@ async def get_capabilities():
 
 @app.get("/tools/{tool_name}")
 async def call_tool(tool_name: str, param: Optional[str] = None, id: Optional[int] = None):
+    print(f"[DEBUG] MCP Tool Call: {tool_name} | Params: param={param}, id={id}")
     try:
         if tool_name == "get_sales_pipeline_summary":
             return mcp_tools.get_sales_pipeline_summary()
@@ -64,19 +72,30 @@ async def call_tool(tool_name: str, param: Optional[str] = None, id: Optional[in
         elif tool_name == "evaluate_deal_risk":
             return mcp_tools.evaluate_deal_risk(id)
         elif tool_name == "prioritize_deals_for_today":
-            return mcp_tools.prioritize_deals_for_today(id)
+            # Fallback if id is missing
+            target_id = id
+            if not target_id:
+                print("[DEBUG] No owner_id provided for prioritization. Attempting name lookup...")
+                if param:
+                    # Look up by name if possible?
+                    pass
+            return mcp_tools.prioritize_deals_for_today(target_id)
         elif tool_name == "check_sales_policy":
             return mcp_tools.check_sales_policy(param)
         else:
+            print(f"[DEBUG] Tool not found: {tool_name}")
             raise HTTPException(status_code=404, detail="Tool not found")
     except Exception as e:
+        print(f"[ERROR] MCP Tool Exception: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/log")
 async def log_decision(decision: DecisionLog):
+    print(f"[DEBUG] Logging decision for agent: {decision.agent_name}")
     try:
-        return mcp_tools.log_agent_decision(decision.dict())
+        return mcp_tools.log_agent_decision(decision.model_dump())
     except Exception as e:
+        print(f"[ERROR] Log Decision Failure: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

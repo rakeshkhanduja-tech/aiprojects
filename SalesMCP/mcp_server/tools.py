@@ -93,25 +93,42 @@ class MCPTools:
             "metadata": {"logic": "risk_thresholds_v1"}
         }
 
-    def prioritize_deals_for_today(self, owner_id):
+    def prioritize_deals_for_today(self, owner_id=None):
         """Reasoning capability: Suggests which deals to focus on based on value and closing date."""
-        sql = """
-            SELECT d.id, c.name as customer_name, d.deal_value, d.expected_close_date
-            FROM deals d
-            JOIN customers c ON d.customer_id = c.id
-            WHERE d.owner_id = %s AND d.stage NOT IN ('Closed Won', 'Closed Lost')
-            ORDER BY d.deal_value DESC, d.expected_close_date ASC
-            LIMIT 3
-        """
-        results = self.db.query(sql, (owner_id,))
+        print(f"[DEBUG] Capability: prioritize_deals_for_today | owner_id: {owner_id}")
+        
+        if owner_id:
+            sql = """
+                SELECT d.id, c.name as customer_name, d.deal_value, d.expected_close_date
+                FROM deals d
+                JOIN customers c ON d.customer_id = c.id
+                WHERE d.owner_id = %s AND d.stage NOT IN ('Closed Won', 'Closed Lost')
+                ORDER BY d.deal_value DESC, d.expected_close_date ASC
+                LIMIT 3
+            """
+            results = self.db.query(sql, (owner_id,))
+        else:
+            # Resiliency: If no owner_id, show top company deals
+            print("[DEBUG] No owner_id provided, returning company-wide priorities.")
+            sql = """
+                SELECT d.id, c.name as customer_name, d.deal_value, d.expected_close_date
+                FROM deals d
+                JOIN customers c ON d.customer_id = c.id
+                WHERE d.stage NOT IN ('Closed Won', 'Closed Lost')
+                ORDER BY d.deal_value DESC, d.expected_close_date ASC
+                LIMIT 5
+            """
+            results = self.db.query(sql)
+
         return {
             "priorities": results,
             "reasoning": "Prioritized by highest value and nearest close date.",
-            "metadata": {"owner_id": owner_id}
+            "metadata": {"owner_id": owner_id, "scope": "Owner" if owner_id else "Company"}
         }
 
     def check_sales_policy(self, policy_name):
         """Policy capability: Returns the rule for a specific sales policy."""
+        print(f"[DEBUG] Capability: check_sales_policy | policy: {policy_name}")
         result = self.db.query("SELECT rule FROM policies WHERE policy_name ILIKE %s", (f"%{policy_name}%",))
         return {
             "policy": policy_name,
@@ -121,6 +138,7 @@ class MCPTools:
 
     def log_agent_decision(self, data):
         """Write capability: Logs an agent's reasoning into the audit table."""
+        print(f"[DEBUG] Capability: log_agent_decision | agent: {data.get('agent_name')}")
         sql = """
             INSERT INTO agent_decisions (agent_name, input_question, recommendation, confidence, evidence)
             VALUES (%s, %s, %s, %s, %s)

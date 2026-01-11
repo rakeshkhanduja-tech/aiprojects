@@ -1,15 +1,21 @@
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sales_agent.agent import SalesAgent
 from database.manager import DatabaseManager
 
 app = FastAPI(title="SalesMCP Consumer API")
 
-# Mount static files for the UI
+# Mount static files
 static_path = os.path.join(os.path.dirname(__file__), "..", "static")
-app.mount("/static", StaticFiles(directory=static_path), name="static")
+app.mount("/static", StaticFiles(directory=static_path, html=True), name="static")
+
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/static/index.html")
 
 app.add_middleware(
     CORSMiddleware,

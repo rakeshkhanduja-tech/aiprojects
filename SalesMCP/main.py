@@ -3,6 +3,9 @@ import subprocess
 import time
 import sys
 import yaml
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def check_config():
     config_path = "config/config.yaml"

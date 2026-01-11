@@ -10,11 +10,33 @@ class DatabaseManager:
         
         self.conn_str = f"host={self.config['host']} port={self.config['port']} dbname={self.config['dbname']} user={self.config['user']} password={self.config['password']} sslmode={self.config['sslmode']}"
 
-    def get_connection(self):
-        return psycopg2.connect(self.conn_str, cursor_factory=RealDictCursor)
+    def get_connection(self, dbname=None):
+        conn_params = self.config.copy()
+        if dbname:
+            conn_params['dbname'] = dbname
+        
+        conn_str = f"host={conn_params['host']} port={conn_params['port']} dbname={conn_params['dbname']} user={conn_params['user']} password={conn_params['password']} sslmode={conn_params['sslmode']}"
+        return psycopg2.connect(conn_str, cursor_factory=RealDictCursor)
 
     def setup_database(self, schema_path):
-        print(f"Setting up database {self.config['dbname']}...")
+        target_db = self.config['dbname']
+        
+        # 1. Connect to 'postgres' to check/create the target database
+        try:
+            print(f"Ensuring database '{target_db}' exists...")
+            conn = self.get_connection(dbname='postgres')
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(f"SELECT 1 FROM pg_database WHERE datname = %s", (target_db,))
+                if not cur.fetchone():
+                    print(f"Database '{target_db}' not found. Creating...")
+                    cur.execute(f'CREATE DATABASE "{target_db}"')
+            conn.close()
+        except Exception as e:
+            print(f"Warning: Could not check/create database: {e}")
+
+        # 2. Connect to the target database and run schema
+        print(f"Setting up schema for '{target_db}'...")
         conn = self.get_connection()
         conn.autocommit = True
         with conn.cursor() as cur:
