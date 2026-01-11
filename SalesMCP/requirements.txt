@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+psycopg2-binary
+pyyaml
+pydantic
+python-dotenv
+langchain
+langchain-google-genai
+sqlalchemy
+pydantic-settings
+jinja2

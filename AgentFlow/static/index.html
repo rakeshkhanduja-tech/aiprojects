@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentFlow | Multi-Agent Orchestration</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #020617;
+            --card: #0f172a;
+            --text: #f1f5f9;
+            --primary: #38bdf8;
+            --secondary: #818cf8;
+            --accent: #c084fc;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --border: #1e293b;
+            --glass: rgba(15, 23, 42, 0.7);
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            background-image: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #020617 100%);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 380px;
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+
+        .main {
+            flex: 1;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            overflow-y: auto;
+            background: rgba(2, 6, 23, 0.4);
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin: 0 0 8px 0;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 600;
+        }
+
+        .badge {
+            font-size: 0.65rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 16px;
+            border-radius: 12px;
+            resize: none;
+            font-family: inherit;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+        }
+
+        .deploy-btn {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #000;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 24px;
+        }
+
+        .deploy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(56, 189, 248, 0.3);
+        }
+
+        .deploy-btn:active {
+            transform: translateY(0);
+        }
+
+        .deploy-btn:disabled {
+            background: #475569;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .log-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .log-entry {
+            background: rgba(30, 41, 59, 0.5);
+            padding: 14px;
+            border-radius: 10px;
+            border-left: 3px solid var(--secondary);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .node-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .state-view {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card-full {
+            grid-column: span 2;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .scroll-area {
+            max-height: 400px;
+            overflow-y: auto;
+            background: rgba(2, 6, 23, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Markdown Styling */
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3 {
+            color: var(--primary);
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .markdown-content p {
+            margin-bottom: 1em;
+        }
+
+        .markdown-content ul,
+        .markdown-content ol {
+            margin-bottom: 1em;
+            padding-left: 1.5em;
+        }
+
+        .markdown-content li {
+            margin-bottom: 0.5em;
+        }
+
+        .markdown-content strong {
+            color: var(--accent);
+        }
+
+        .markdown-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .graph-wrapper {
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px;
+            border: 1px solid var(--border);
+        }
+
+        #mermaidGraph {
+            width: 100%;
+        }
+
+        /* Force Mermaid Legibility */
+        .mermaid .node rect {
+            fill: #0f172a !important;
+            stroke: #38bdf8 !important;
+            transition: all 0.3s;
+        }
+
+        .mermaid .node .label {
+            color: #38bdf8 !important;
+            fill: #38bdf8 !important;
+            font-weight: 600 !important;
+            font-family: 'Outfit', sans-serif !important;
+        }
+
+        .mermaid .edgePath .path {
+            stroke: #818cf8 !important;
+            stroke-width: 2px !important;
+        }
+
+        .mermaid .edgeLabel {
+            color: #f1f5f9 !important;
+            background-color: var(--bg) !important;
+            padding: 2px 6px !important;
+            border-radius: 4px !important;
+        }
+
+        .mermaid .marker {
+            fill: #818cf8 !important;
+            stroke: #818cf8 !important;
+        }
+
+        .status-pill {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .status-wait {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h1>AgentFlow <span class="badge">v1.0</span></h1>
+        <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 24px;">Autonomous swarm orchestration for strategic
+            goal solving.</p>
+
+        <div class="input-group">
+            <textarea id="goalInput"
+                placeholder="Describe your objective here...">Analyze whether we should launch an AI customer support agent for a fintech startup in India. Consider cost, compliance, and ROI.</textarea>
+        </div>
+
+        <button id="runBtn" class="deploy-btn" onclick="runTask()">Deploy Agent Swarm</button>
+
+        <div id="loading" style="display: none; text-align: center; margin-bottom: 20px;">
+            <div style="color: var(--secondary); font-size: 0.9rem; font-style: italic;">
+                Collaborating on Strategy...
+            </div>
+        </div>
+
+        <h3 style="font-size: 0.8rem; text-transform: uppercase; color: #64748b; letter-spacing: 1px;">Swarm Activity
+        </h3>
+        <div id="logs" class="log-container"></div>
+    </div>
+
+    <div class="main">
+        <div class="card card-full">
+            <div class="card-title">
+                Workflow Visualization
+                <span id="graphStatus" class="status-pill status-success">Interactive</span>
+            </div>
+            <div class="graph-wrapper">
+                <div id="mermaidContainer"></div>
+            </div>
+        </div>
+
+        <div class="state-view">
+            <div class="card card-full">
+                <div class="card-title">
+                    Executive Output
+                    <span id="outputStatus" class="status-pill status-wait">Awaiting Result</span>
+                </div>
+                <div id="finalOutput" class="scroll-area markdown-content">
+                    <p style="color: #64748b; font-style: italic;">The Executor Agent will compile the final report
+                        here.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Research Foundations</div>
+                <div id="researchNotes" class="scroll-area markdown-content">
+                    <p style="color: #64748b; font-style: italic;">Researcher Agent is gathering data...</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Validation Trace</div>
+                <div id="validationFeedback" class="scroll-area markdown-content">
+                    <p style="color: #64748b; font-style: italic;">Validator Agent will review the output.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configure Marked
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
+
+        const API_URL = "http://localhost:8000";
+        let isRunning = false;
+
+        async function init() {
+            try {
+                const resp = await fetch(`${API_URL}/graph`);
+                const data = await resp.json();
+                renderGraph(data.mermaid);
+            } catch (e) {
+                console.error("Failed to load graph", e);
+            }
+        }
+
+        async function renderGraph(definition) {
+            const container = document.getElementById('mermaidContainer');
+            container.innerHTML = `<div class="mermaid" id="graphDiv">${definition}</div>`;
+            try {
+                await mermaid.run({
+                    nodes: [container.querySelector('#graphDiv')]
+                });
+            } catch (err) {
+                console.error("Mermaid run error:", err);
+            }
+        }
+
+        async function runTask() {
+            const goal = document.getElementById('goalInput').value;
+            if (!goal) return;
+
+            isRunning = true;
+            document.getElementById('runBtn').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('logs').innerHTML = "";
+            document.getElementById('outputStatus').className = "status-pill status-wait";
+            document.getElementById('outputStatus').textContent = "Processing...";
+
+            try {
+                await fetch(`${API_URL}/run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ goal })
+                });
+                pollResults();
+            } catch (e) {
+                console.error("Execution failed", e);
+                isRunning = false;
+                document.getElementById('runBtn').disabled = false;
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        async function pollResults() {
+            if (!isRunning) return;
+
+            try {
+                const logsResp = await fetch(`${API_URL}/logs`);
+                const logsData = await logsResp.json();
+                updateLogs(logsData.logs);
+
+                const stateResp = await fetch(`${API_URL}/state`);
+                const stateData = await stateResp.json();
+                updateUI(stateData);
+
+                if (stateData.validation_feedback && stateData.validation_feedback.includes("APPROVED")) {
+                    finishTask("Success: Task Approved!");
+                } else if (stateData.retry_count >= 3) {
+                    finishTask("Terminated: Max Retries Reached", true);
+                } else {
+                    setTimeout(pollResults, 2500);
+                }
+            } catch (e) {
+                console.error("Polling error", e);
+                setTimeout(pollResults, 5000);
+            }
+        }
+
+        function finishTask(msg, isError = false) {
+            isRunning = false;
+            document.getElementById('runBtn').disabled = false;
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('outputStatus').className = isError ? "status-pill status-wait" : "status-pill status-success";
+            document.getElementById('outputStatus').textContent = isError ? "Failed" : "Completed";
+            alert(msg);
+        }
+
+        function updateLogs(logs) {
+            const container = document.getElementById('logs');
+            container.innerHTML = logs.map(log => `
+                <div class="log-entry">
+                    <div class="node-tag">${log.node} Agent</div>
+                    <div style="font-size: 0.8rem; color: #f1f5f9; opacity: 0.8;">Phase executed successfully</div>
+                </div>
+            `).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateUI(state) {
+            if (!state || Object.keys(state).length === 0) return;
+
+            if (state.draft_output) {
+                document.getElementById('finalOutput').innerHTML = marked.parse(state.draft_output);
+            }
+            if (state.research_notes) {
+                document.getElementById('researchNotes').innerHTML = marked.parse(state.research_notes);
+            }
+            if (state.validation_feedback) {
+                document.getElementById('validationFeedback').innerHTML = marked.parse(state.validation_feedback);
+            }
+        }
+
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#0f172a',
+                primaryTextColor: '#38bdf8',
+                primaryBorderColor: '#38bdf8',
+                lineColor: '#818cf8',
+                secondaryColor: '#c084fc',
+                tertiaryColor: '#020617',
+                mainBkg: '#0f172a',
+                nodeBorder: '#38bdf8',
+                textColor: '#38bdf8'
+            }
+        });
+
+        init();
+    </script>
+</body>
+
+</html>

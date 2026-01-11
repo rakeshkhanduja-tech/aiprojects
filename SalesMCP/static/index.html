@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SalesMCP | AI Sales Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --sidebar: #1e293b;
+            --primary: #2563eb;
+            --accent: #3b82f6;
+            --text: #0f172a;
+            --card: #ffffff;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: var(--sidebar);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .main {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            overflow-y: auto;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0 0 8px 0;
+            color: white;
+        }
+
+        .logo {
+            font-weight: 600;
+            color: #60a5fa;
+            margin-bottom: 24px;
+        }
+
+        .input-box {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            border: 1px solid var(--border);
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 1rem;
+            resize: none;
+            outline: none;
+            margin-bottom: 16px;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: var(--accent);
+        }
+
+        button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .result-card {
+            background: white;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            border: 1px solid var(--border);
+            line-height: 1.6;
+        }
+
+        .history-item {
+            padding: 12px;
+            border-bottom: 1px solid #334155;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .history-item:hover {
+            background: #334155;
+        }
+
+        .tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: var(--primary);
+        }
+
+        .loading {
+            display: none;
+            color: var(--primary);
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        pre {
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="logo">SalesMCP v1.0</div>
+        <h1>Decision History</h1>
+        <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 16px;">Past agent reasoning stored in shared memory.
+        </p>
+        <div id="history"></div>
+    </div>
+
+    <div class="main">
+        <div class="input-box">
+            <h2 style="margin-top: 0;">What's on your mind?</h2>
+            <textarea id="questionInput"
+                placeholder="Try: 'What deals should I focus on today?' or 'Summarize my pipeline health'"></textarea>
+            <button id="askBtn" onclick="askQuestion()">Consult Sales Agent</button>
+            <div id="loading" class="loading">Agent is consulting MCP Server...</div>
+        </div>
+
+        <div id="resultContainer" style="display: none;">
+            <div class="result-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2 style="margin: 0;">Agent Recommendation</h2>
+                    <div id="mcpTag" class="tag">MCP: NONE</div>
+                </div>
+                <div id="recommendationContent"></div>
+
+                <h3 style="margin-top: 32px;">Evidence Used (MCP Data)</h3>
+                <pre id="evidenceContent"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000";
+
+        async function askQuestion() {
+            const question = document.getElementById('questionInput').value;
+            if (!question) return;
+
+            document.getElementById('askBtn').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultContainer').style.display = 'none';
+
+            try {
+                const resp = await fetch(`${API_URL}/ask`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+                const data = await resp.json();
+
+                document.getElementById('recommendationContent').innerHTML = marked.parse(data.recommendation);
+                document.getElementById('mcpTag').textContent = `MCP: ${data.mcp_call}`;
+                document.getElementById('evidenceContent').textContent = JSON.stringify(data.evidence, null, 2);
+
+                document.getElementById('resultContainer').style.display = 'block';
+                loadHistory();
+            } catch (e) {
+                alert("Error: " + e.message);
+            } finally {
+                document.getElementById('askBtn').disabled = false;
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        async function loadHistory() {
+            const resp = await fetch(`${API_URL}/history`);
+            const data = await resp.json();
+            const container = document.getElementById('history');
+            container.innerHTML = data.history.map(item => `
+                <div class="history-item">
+                    <strong>Q:</strong> ${item.input_question.substring(0, 40)}...<br>
+                    <span style="font-size: 0.75rem; opacity: 0.7;">${new Date(item.created_at).toLocaleString()}</span>
+                </div>
+            `).join('');
+        }
+
+        loadHistory();
+    </script>
+</body>
+
+</html>
